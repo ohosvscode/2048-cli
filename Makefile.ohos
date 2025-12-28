@@ -1,0 +1,97 @@
+# OpenHarmony Build Configuration
+# OpenHarmony SDK路径
+OHOS_SDK := /Applications/DevEco-Studio.app/Contents/sdk/default/openharmony
+OHOS_NATIVE := $(OHOS_SDK)/native
+OHOS_LLVM := $(OHOS_NATIVE)/llvm/bin
+OHOS_SYSROOT := $(OHOS_NATIVE)/sysroot
+
+# 架构选择: aarch64 或 armv7 (默认: aarch64)
+ARCH ?= aarch64
+
+# 根据架构设置工具链
+ifeq ($(ARCH),aarch64)
+    CC := $(OHOS_LLVM)/aarch64-unknown-linux-ohos-clang
+    TARGET_TRIPLE := aarch64-unknown-linux-ohos
+else ifeq ($(ARCH),armv7)
+    CC := $(OHOS_LLVM)/armv7-unknown-linux-ohos-clang
+    TARGET_TRIPLE := armv7-unknown-linux-ohos
+else
+    $(error 不支持的架构: $(ARCH). 请使用 aarch64 或 armv7)
+endif
+
+# 编译标志
+CFLAGS := -Wall -Wextra
+CFLAGS += --target=$(TARGET_TRIPLE)
+CFLAGS += --sysroot=$(OHOS_SYSROOT)
+CFLAGS += -fPIC
+CFLAGS += -O2
+
+# 源文件和目标文件
+SRC_DIR := ./src
+INCLUDE_DIR := ./include
+BIN_DIR := ./bin/ohos/$(ARCH)
+SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
+OBJ_FILES := $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRC_FILES))
+
+# 输出目标
+TARGET := 2048
+
+# Phony targets
+.PHONY: all release clean help aarch64 armv7
+
+# 默认目标
+all: release
+
+# 帮助信息
+help:
+	@echo "OpenHarmony 2048 游戏编译系统"
+	@echo ""
+	@echo "用法: make [target] [ARCH=架构]"
+	@echo ""
+	@echo "目标:"
+	@echo "  all       - 编译release版本 (默认)"
+	@echo "  release   - 编译release版本"
+	@echo "  clean     - 清理编译产物"
+	@echo "  help      - 显示此帮助信息"
+	@echo "  aarch64   - 编译64位ARM版本"
+	@echo "  armv7     - 编译32位ARM版本"
+	@echo ""
+	@echo "架构选项:"
+	@echo "  ARCH=aarch64  - 64位ARM架构 (默认)"
+	@echo "  ARCH=armv7    - 32位ARM架构"
+	@echo ""
+	@echo "示例:"
+	@echo "  make              # 编译aarch64版本"
+	@echo "  make ARCH=armv7   # 编译armv7版本"
+	@echo "  make aarch64      # 编译aarch64版本"
+	@echo "  make armv7        # 编译armv7版本"
+
+# 编译规则
+$(BIN_DIR)/$(TARGET): $(OBJ_FILES) | $(BIN_DIR)
+	$(CC) -I $(INCLUDE_DIR) $(CFLAGS) $^ -o $@
+	@echo ""
+	@echo "编译成功! 可执行文件位于: $(BIN_DIR)/$(TARGET)"
+	@echo "架构: $(ARCH)"
+
+# 编译源文件
+$(BIN_DIR)/%.o: $(SRC_DIR)/%.c | $(BIN_DIR)
+	$(CC) -I $(INCLUDE_DIR) $(CFLAGS) -c $< -o $@
+
+# 创建bin目录
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
+
+# Release build
+release: $(BIN_DIR)/$(TARGET)
+
+# 架构特定的目标
+aarch64:
+	$(MAKE) ARCH=aarch64 release
+
+armv7:
+	$(MAKE) ARCH=armv7 release
+
+# 清理
+clean:
+	rm -rf $(BIN_DIR)
+	@echo "已清理编译产物"
