@@ -5,19 +5,10 @@ OHOS_NATIVE := $(OHOS_SDK)/native
 OHOS_LLVM := $(OHOS_NATIVE)/llvm/bin
 OHOS_SYSROOT := $(OHOS_NATIVE)/sysroot
 
-# 架构选择: aarch64 或 armv7 (默认: aarch64)
-ARCH ?= aarch64
-
-# 根据架构设置工具链
-ifeq ($(ARCH),aarch64)
-    CC := $(OHOS_LLVM)/aarch64-unknown-linux-ohos-clang
-    TARGET_TRIPLE := aarch64-unknown-linux-ohos
-else ifeq ($(ARCH),armv7)
-    CC := $(OHOS_LLVM)/armv7-unknown-linux-ohos-clang
-    TARGET_TRIPLE := armv7-unknown-linux-ohos
-else
-    $(error 不支持的架构: $(ARCH). 请使用 aarch64 或 armv7)
-endif
+# 架构固定为 aarch64
+ARCH := aarch64
+CC := $(OHOS_LLVM)/aarch64-unknown-linux-ohos-clang
+TARGET_TRIPLE := aarch64-unknown-linux-ohos
 
 # 编译标志
 CFLAGS := -Wall -Wextra
@@ -29,69 +20,79 @@ CFLAGS += -O2
 # 源文件和目标文件
 SRC_DIR := ./src
 INCLUDE_DIR := ./include
-BIN_DIR := ./bin/ohos/$(ARCH)
+BIN_DIR := ./2048/bin
+OBJ_DIR := $(BIN_DIR)/obj
 SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
-OBJ_FILES := $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRC_FILES))
+OBJ_FILES := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC_FILES))
 
 # 输出目标
 TARGET := 2048
+TARGET_BINARY := $(BIN_DIR)/$(TARGET)
+
+# HNP 配置
+HNP_CONFIG := ./2048/hnp.json
+HNP_OUTPUT_DIR := ./ohos_2048_cli/hnp/arm64-v8a
+HNP_PACKAGE := $(HNP_OUTPUT_DIR)/2048.hnp
 
 # Phony targets
-.PHONY: all release clean help aarch64 armv7
+.PHONY: all release clean help hnp
 
 # 默认目标
-all: release
+all: release hnp
 
 # 帮助信息
 help:
 	@echo "OpenHarmony 2048 游戏编译系统"
 	@echo ""
-	@echo "用法: make [target] [ARCH=架构]"
+	@echo "用法: make [target]"
 	@echo ""
 	@echo "目标:"
-	@echo "  all       - 编译release版本 (默认)"
+	@echo "  all       - 编译release版本并打包hnp (默认)"
 	@echo "  release   - 编译release版本"
+	@echo "  hnp       - 打包hnp文件"
 	@echo "  clean     - 清理编译产物"
 	@echo "  help      - 显示此帮助信息"
-	@echo "  aarch64   - 编译64位ARM版本"
-	@echo "  armv7     - 编译32位ARM版本"
-	@echo ""
-	@echo "架构选项:"
-	@echo "  ARCH=aarch64  - 64位ARM架构 (默认)"
-	@echo "  ARCH=armv7    - 32位ARM架构"
 	@echo ""
 	@echo "示例:"
-	@echo "  make              # 编译aarch64版本"
-	@echo "  make ARCH=armv7   # 编译armv7版本"
-	@echo "  make aarch64      # 编译aarch64版本"
-	@echo "  make armv7        # 编译armv7版本"
+	@echo "  make              # 编译并打包"
+	@echo "  make release      # 仅编译"
+	@echo "  make hnp          # 仅打包"
 
 # 编译规则
-$(BIN_DIR)/$(TARGET): $(OBJ_FILES) | $(BIN_DIR)
+$(TARGET_BINARY): $(OBJ_FILES) | $(BIN_DIR)
 	$(CC) -I $(INCLUDE_DIR) $(CFLAGS) $^ -o $@
 	@echo ""
-	@echo "编译成功! 可执行文件位于: $(BIN_DIR)/$(TARGET)"
+	@echo "编译成功! 可执行文件位于: $(TARGET_BINARY)"
 	@echo "架构: $(ARCH)"
 
 # 编译源文件
-$(BIN_DIR)/%.o: $(SRC_DIR)/%.c | $(BIN_DIR)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) -I $(INCLUDE_DIR) $(CFLAGS) -c $< -o $@
 
 # 创建bin目录
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
+# 创建obj目录
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
+
+# 创建hnp输出目录
+$(HNP_OUTPUT_DIR):
+	mkdir -p $(HNP_OUTPUT_DIR)
+
 # Release build
-release: $(BIN_DIR)/$(TARGET)
+release: $(TARGET_BINARY)
 
-# 架构特定的目标
-aarch64:
-	$(MAKE) ARCH=aarch64 release
-
-armv7:
-	$(MAKE) ARCH=armv7 release
+# HNP打包
+hnp: $(TARGET_BINARY) $(HNP_OUTPUT_DIR)
+	@echo "正在打包 HNP 文件..."
+	hnpcli pack -i ./2048 -o $(HNP_OUTPUT_DIR)
+	@echo ""
+	@echo "HNP 打包成功! 文件位于: $(HNP_PACKAGE)"
 
 # 清理
 clean:
 	rm -rf $(BIN_DIR)
+	rm -rf $(HNP_OUTPUT_DIR)/*.hnp
 	@echo "已清理编译产物"

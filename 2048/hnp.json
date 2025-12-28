@@ -1,0 +1,13 @@
+{
+  "type": "hnp-config",
+  "name": "2048",
+  "version": "1.0.0",
+  "install": {
+      "links": [
+          {
+              "source": "/bin/2048",
+              "target": "2048"
+          }
+      ]
+  }
+}
